@@ -5,6 +5,7 @@ Handles the full lifecycle: auth → message routing → NLP → action executio
 import json
 import logging
 from uuid import uuid4
+from typing import Any
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
 
@@ -16,9 +17,11 @@ from src.schemas.ws import (
     ServerMessage,
     ServerMessageType,
     NLPInputPayload,
+    SyncCategory,
 )
 from src.nlp import process_input
 from src.actions.executor import execute_plan
+from src.modules.sync.routes import MOCK_SYNC_DATA
 from src.utils.shared_state import user_sync_data
 
 logger = logging.getLogger(__name__)
@@ -28,6 +31,24 @@ router = APIRouter()
 # In-memory store for pending plans (per user)
 # In production, use Redis or a dedicated store
 _pending_plans: dict[str, dict] = {}  # plan_id → {plan, user_id}
+
+
+def _normalize_sync_categories(payload: Any) -> list[dict[str, Any]]:
+    if not isinstance(payload, list):
+        return []
+
+    categories: list[dict[str, Any]] = []
+    for item in payload:
+        try:
+            normalized = SyncCategory.model_validate(item).model_dump(
+                by_alias=True,
+                exclude_none=True,
+            )
+            categories.append(normalized)
+        except Exception as exc:
+            logger.warning("Skipping invalid sync category payload: %s", exc)
+
+    return categories
 
 
 @router.websocket("/ws")
@@ -79,6 +100,19 @@ async def websocket_endpoint(
             type=ServerMessageType.CONNECTED,
             id=str(uuid4()),
             payload={"user_id": user_id, "username": username},
+        ),
+    )
+
+    cached_sync = user_sync_data.get(user_id) or MOCK_SYNC_DATA
+    await manager.send_to_ws(
+        websocket,
+        ServerMessage(
+            type=ServerMessageType.SYNC_DATA,
+            id=str(uuid4()),
+            payload={
+                "categories": cached_sync,
+                "source": "live" if user_sync_data.get(user_id) else "mock",
+            },
         ),
     )
 
@@ -136,13 +170,14 @@ async def _handle_message(websocket: WebSocket, user_id: str, msg: ClientMessage
 
         # ── Telemetry (Relay to other devices) ───────
         case ClientMessageType.APP_FOCUSED | ClientMessageType.APP_OPENED | ClientMessageType.SYSTEM_STATS:
+            telemetry_type = msg.type.value if hasattr(msg.type, "value") else str(msg.type)
             logger.debug(f"Relaying telemetry: {msg.type} from {user_id}")
             await manager.send_to_user(
                 user_id=user_id,
                 message=ServerMessage(
                     type=ServerMessageType.TELEMETRY_UPDATE,
                     payload={
-                        "telemetry_type": msg.type,
+                        "telemetry_type": telemetry_type,
                         "data": msg.payload
                     }
                 ),
@@ -152,8 +187,20 @@ async def _handle_message(websocket: WebSocket, user_id: str, msg: ClientMessage
         # ── Desktop Sync State ───────────────────────
         case ClientMessageType.SYNC_DATA:
             logger.info(f"Sync data received from {user_id}")
-            # In-memory storage (user_id -> list of categories)
-            user_sync_data[user_id] = msg.payload
+            categories = _normalize_sync_categories(msg.payload)
+            user_sync_data[user_id] = categories
+
+            await manager.send_to_user(
+                user_id=user_id,
+                message=ServerMessage(
+                    type=ServerMessageType.SYNC_DATA,
+                    payload={
+                        "categories": categories,
+                        "source": "live"
+                    }
+                ),
+                exclude=websocket
+            )
             
             # Notify Android app that new sync data is available
             await manager.send_to_user(
@@ -162,7 +209,7 @@ async def _handle_message(websocket: WebSocket, user_id: str, msg: ClientMessage
                     type=ServerMessageType.TELEMETRY_UPDATE,
                     payload={
                         "telemetry_type": "sync_refresh",
-                        "data": msg.payload
+                        "data": categories
                     }
                 ),
                 exclude=websocket

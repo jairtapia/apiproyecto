@@ -1,8 +1,8 @@
 """
 Pydantic schemas for WebSocket messages.
 """
-from pydantic import BaseModel, Field
-from typing import Any
+from pydantic import BaseModel, ConfigDict, Field
+from typing import Any, Literal, Union
 from enum import Enum
 
 
@@ -28,6 +28,7 @@ class ServerMessageType(str, Enum):
     ERROR = "error"
     PONG = "pong"
     REMOTE_COMMAND = "remote_command"
+    SYNC_DATA = "sync_data"
     TELEMETRY_UPDATE = "telemetry_update"
 
 
@@ -35,7 +36,7 @@ class ServerMessageType(str, Enum):
 class ClientMessage(BaseModel):
     type: ClientMessageType
     id: str | None = None
-    payload: dict[str, Any] = Field(default_factory=dict)
+    payload: Union[dict[str, Any], list[Any]] = Field(default_factory=dict)
 
 
 class NLPInputPayload(BaseModel):
@@ -50,6 +51,67 @@ class ServerMessage(BaseModel):
     type: ServerMessageType
     id: str | None = None
     payload: dict[str, Any] = Field(default_factory=dict)
+
+
+class SyncStat(BaseModel):
+    label: str
+    value: str
+
+
+class SyncField(BaseModel):
+    type: str = "info"
+    key: str
+    label: str
+    value: Any = None
+    min: float | None = None
+    max: float | None = None
+    unit: str | None = None
+    options: list[str] | None = None
+
+
+class SyncSettingsGroup(BaseModel):
+    title: str
+    fields: list[SyncField] = Field(default_factory=list)
+
+
+class RemoteCommandPayload(BaseModel):
+    """Payload embedded in a SyncShortcut to tell the PC what to execute on tap."""
+    action: str
+    target: str | None = None
+    params: dict[str, Any] | None = None
+    shortcut_id: str | None = Field(default=None, alias="shortcutId")
+
+
+class SyncShortcut(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: str
+    label: str
+    icon: str
+    size: Literal["small", "wide", "tall", "big"] = "small"
+    subtitle: str | None = None
+    detail: str | None = None
+    value: Any = None
+    unit: str | None = None
+    min: float | None = None
+    max: float | None = None
+    action_type: Literal["status", "toggle", "slider", "chips"] | None = Field(default=None, alias="actionType")
+    options: list[str] | None = None
+    logs: list[str] | None = None
+    stats: list[SyncStat] | None = None
+    progress_value: float | None = Field(default=None, alias="progressValue")
+    progress_label: list[str] | None = Field(default=None, alias="progressLabel")
+    settings_groups: list[SyncSettingsGroup] | None = Field(default=None, alias="settingsGroups")
+    command: RemoteCommandPayload | None = None
+    image_url: str | None = Field(default=None, alias="imageUrl")
+
+
+class SyncCategory(BaseModel):
+    id: str
+    name: str
+    color: str
+    icon: str
+    shortcuts: list[SyncShortcut] = Field(default_factory=list)
 
 
 # ── Action schemas ───────────────────────────────────────

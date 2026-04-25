@@ -1,4 +1,8 @@
+import json
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, Request
+from fastapi.responses import JSONResponse
 from src.middleware.auth import get_current_user
 from src.models.user import User
 from src.schemas.auth import (
@@ -14,6 +18,28 @@ from src.utils.response import success_response
 from src.utils.shared_state import active_pairing_codes
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+
+
+def _validate_pair_qr_payload(raw_qr_data: str | None) -> dict | None:
+    if not raw_qr_data:
+        return None
+
+    try:
+        qr_data = json.loads(raw_qr_data)
+    except json.JSONDecodeError as exc:
+        raise ValueError("Invalid QR payload") from exc
+
+    expires_raw = qr_data.get("expires")
+    if isinstance(expires_raw, str) and expires_raw:
+        try:
+            expires_at = datetime.fromisoformat(expires_raw.replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise ValueError("Invalid QR expiration timestamp") from exc
+
+        if expires_at < datetime.now(timezone.utc):
+            raise ValueError("QR code expired")
+
+    return qr_data
 
 
 @router.post("/register", status_code=201)
@@ -95,6 +121,14 @@ async def register_pair(body: PairRequest, user: User = Depends(get_current_user
 @router.post("/pair")
 async def pair_device(body: PairRequest, user: User = Depends(get_current_user)):
     """Verify pairing code from mobile device."""
+    try:
+        _validate_pair_qr_payload(body.qr_data)
+    except ValueError as exc:
+        return JSONResponse(
+            status_code=400,
+            content={"success": False, "message": str(exc)},
+        )
+
     user_id = str(user.id)
     stored_code = active_pairing_codes.get(user_id)
     
@@ -106,9 +140,11 @@ async def pair_device(body: PairRequest, user: User = Depends(get_current_user))
             data={"deviceId": f"MOBILE-{user_id[:8]}"},
             message="Device paired successfully"
         )
-        
-    return success_response(
-        data=None,
-        message="Invalid or expired pairing code",
-        status_code=400
+
+    return JSONResponse(
+        status_code=400,
+        content={
+            "success": False,
+            "message": "Invalid or expired pairing code",
+        },
     )

@@ -113,6 +113,7 @@ MOCK_SYNC_DATA = [
                     "size": "small",
                     "value": "2,400 rpm",
                     "actionType": "status",
+                    "command": {"action": "set_fan_speed", "target": "system", "params": {"curve": "Standard"}},
                     "settingsGroups": [
                         {
                             "title": "Control BIOS",
@@ -130,6 +131,7 @@ MOCK_SYNC_DATA = [
                     "size": "small",
                     "value": "3d 14h",
                     "actionType": "status",
+                    "command": {"action": "lock_screen", "target": "system"},
                     "settingsGroups": [
                         {
                             "title": "Estado del Sistema",
@@ -215,6 +217,7 @@ MOCK_SYNC_DATA = [
                     "actionType": "chips",
                     "value": "100%",
                     "options": ["75%", "90%", "100%", "125%", "150%"],
+                    "command": {"action": "zoom_browser", "target": "browser", "params": {"level": "100%"}},
                     "settingsGroups": [
                         {
                             "title": "Accesibilidad",
@@ -232,6 +235,7 @@ MOCK_SYNC_DATA = [
                     "size": "small",
                     "value": True,
                     "actionType": "toggle",
+                    "command": {"action": "toggle_adblocker", "target": "browser"},
                     "settingsGroups": [
                         {
                             "title": "Filtros",
@@ -506,36 +510,20 @@ MOCK_SYNC_DATA = [
             "icon": "MusicNotes",
             "shortcuts": [
                 {
-                    "id": "SP_NOW",
+                    "id": "MED_NOW",
                     "label": "NOW PLAYING",
                     "icon": "MusicNotes",
                     "size": "big",
-                    "subtitle": "Tame Impala — The Less I Know",
+                    "subtitle": "Sin reproducción activa",
                     "stats": [
-                        {"label": "ÁLBUM", "value": "Currents"},
-                        {"label": "CALIDAD", "value": "Very High"},
-                        {"label": "BITRATE", "value": "320 kbps"},
-                        {"label": "DEVICE", "value": "This computer"},
+                        {"label": "PISTA",   "value": "—"},
+                        {"label": "ARTISTA", "value": "—"},
+                        {"label": "ÁLBUM",   "value": "—"},
+                        {"label": "CALIDAD", "value": "—"},
                     ],
-                    "progressValue": 62,
-                    "progressLabel": ["2:18", "3:36"],
-                    "settingsGroups": [
-                        {
-                            "title": "Audio",
-                            "fields": [
-                                {"type": "select", "key": "quality", "label": "Calidad streaming", "value": "Very High", "options": ["Normal", "High", "Very High", "Ultra"]},
-                                {"type": "toggle", "key": "crossfade", "label": "Crossfade", "value": True},
-                                {"type": "slider", "key": "crossfade_s", "label": "Duración crossfade", "value": 5, "min": 1, "max": 12, "unit": "s"},
-                                {"type": "toggle", "key": "normalize", "label": "Normalizar volumen", "value": True},
-                            ],
-                        },
-                        {
-                            "title": "Dispositivo",
-                            "fields": [
-                                {"type": "select", "key": "output", "label": "Salida de audio", "value": "Auriculares", "options": ["Auriculares", "Altavoces", "TV Samsung", "Chromecast"]},
-                            ],
-                        },
-                    ],
+                    "progressValue": 0,
+                    "progressLabel": ["0:00", "0:00"],
+                    "command": {"action": "media_play"},
                 },
                 {
                     "id": "SP_QUEUE",
@@ -574,6 +562,7 @@ MOCK_SYNC_DATA = [
                     "min": 0,
                     "max": 100,
                     "unit": "%",
+                    "command": {"action": "set_volume", "target": "spotify", "params": {"value": 72}},
                     "settingsGroups": [
                         {
                             "title": "Mezclador",
@@ -591,6 +580,7 @@ MOCK_SYNC_DATA = [
                     "size": "small",
                     "value": True,
                     "actionType": "toggle",
+                    "command": {"action": "media_shuffle", "target": "spotify"},
                     "settingsGroups": [
                         {
                             "title": "Algoritmo",
@@ -616,6 +606,64 @@ MOCK_SYNC_DATA = [
                             ]
                         }
                     ]
+                },
+                {
+                    "id": "MED_PREV",
+                    "label": "ANTERIOR",
+                    "icon": "SkipBack",
+                    "size": "small",
+                    "actionType": "status",
+                    "value": "⏮",
+                    "command": {"action": "media_prev"},
+                },
+                {
+                    "id": "MED_PLAY",
+                    "label": "PLAY / PAUSE",
+                    "icon": "Play",
+                    "size": "small",
+                    "actionType": "toggle",
+                    "value": False,
+                    "command": {"action": "media_play"},
+                },
+                {
+                    "id": "MED_NEXT",
+                    "label": "SIGUIENTE",
+                    "icon": "SkipForward",
+                    "size": "small",
+                    "actionType": "status",
+                    "value": "⏭",
+                    "command": {"action": "media_next"},
+                },
+                {
+                    "id": "MED_STOP",
+                    "label": "DETENER",
+                    "icon": "Stop",
+                    "size": "small",
+                    "actionType": "status",
+                    "value": "⏹",
+                    "command": {"action": "media_stop"},
+                },
+                {
+                    "id": "MED_MUTE",
+                    "label": "SILENCIAR",
+                    "icon": "SpeakerSlash",
+                    "size": "small",
+                    "actionType": "toggle",
+                    "value": False,
+                    "command": {"action": "volume_mute"},
+                },
+                {
+                    "id": "MED_VOL",
+                    "label": "VOL. SISTEMA",
+                    "icon": "SpeakerHigh",
+                    "size": "wide",
+                    "detail": "Volumen del sistema",
+                    "actionType": "slider",
+                    "value": 70,
+                    "min": 0,
+                    "max": 100,
+                    "unit": "%",
+                    "command": {"action": "set_volume", "params": {"value": 70}},
                 },
             ],
         },
@@ -758,6 +806,7 @@ MOCK_SYNC_DATA = [
                         {"label": "MODO", "value": "Gamepad"},
                     ],
                     "progressValue": 100,
+                    "command": {"action": "open_app", "target": "trackpad_mode"},
                     "settingsGroups": []
                 },
                 {
@@ -782,10 +831,11 @@ MOCK_SYNC_DATA = [
                     "size": "wide",
                     "value": "Mic Active",
                     "actionType": "chips",
-                    "options": ["RECORD", "PLAY", "STOP"]
+                    "options": ["RECORD", "PLAY", "STOP"],
+                    "command": {"action": "run_script", "target": "audio", "params": {"script": "toggle_mic"}}
                 }
             ]
-        }
+        },
     ]
 
 
@@ -793,11 +843,11 @@ MOCK_SYNC_DATA = [
 async def get_sync_data(user: User = Depends(get_current_user)):
     """Return synchronized dashboard categories and shortcuts."""
     user_id = str(user.id)
-    
-    # Priority: 1. Live data from shared state, 2. Mock data
-    data = user_sync_data.get(user_id, MOCK_SYNC_DATA)
-    
+
+    live = user_sync_data.get(user_id)
+    data = live if live else MOCK_SYNC_DATA
+
     return success_response(
         data=data,
-        message="Sync data retrieved successfully"
+        message="Live sync data" if live else "Mock sync data"
     )
